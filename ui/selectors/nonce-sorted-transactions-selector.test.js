@@ -130,28 +130,6 @@ describe('nonceSortedTransactionsSelector', () => {
     ]);
   });
 
-  it('should properly group a failed off-chain simple send that is superseded by a retry', () => {
-    const txList = [
-      duplicateTx(SIMPLE_SEND_TX, { status: TRANSACTION_STATUSES.FAILED }),
-      duplicateTx(RETRY_TX, { time: 1 }),
-    ];
-
-    const state = getStateTree({ txList });
-
-    const result = nonceSortedTransactionsSelector(state);
-
-    expect(result).toStrictEqual([
-      {
-        nonce: '0x0',
-        transactions: txList,
-        initialTransaction: head(txList),
-        primaryTransaction: last(txList),
-        hasRetried: true,
-        hasCancelled: false,
-      },
-    ]);
-  });
-
   it('should properly group a simple send that is superseded by a cancel', () => {
     const txList = [
       duplicateTx(SIMPLE_SEND_TX, { status: TRANSACTION_STATUSES.DROPPED }),
@@ -203,7 +181,7 @@ describe('nonceSortedTransactionsSelector', () => {
     // test case when we move and change grouping logic.
     const txList = [
       duplicateTx(TOKEN_SEND_TX, { status: TRANSACTION_STATUSES.DROPPED }),
-      duplicateTx(SIMPLE_SEND_TX, { time: 1 }),
+      duplicateTx(SIMPLE_SEND_TX),
     ];
 
     const state = getStateTree({ txList });
@@ -289,14 +267,15 @@ describe('nonceSortedTransactionsSelector', () => {
     ]);
   });
 
-  it('should not set a failed off-chain transaction as primary or initial, regardless of tx order', () => {
+  it('should not set a failed off-chain transaction as primary, regardless of tx order', () => {
     // Scenario:
     // 1. You submit transaction A.
     // 2. Transaction A fails off-chain (the network rejects it).
     // 3. You submit transaction B.
-    // 4. Transaction A no longer has any visual representation in the UI.
-    //    This is desired because we have no way currently to tell the intent
-    //    of the transactions.
+    // 4. You see a pending transaction (B's status) in the activity with the
+    //    details of A. Seeing the pending status is desired. Seeing the
+    //    details of transaction A (recipient, value, etc) is a bug to be fixed
+    //    in a future PR.
     const txList = [
       duplicateTx(SIMPLE_SEND_TX, { status: TRANSACTION_STATUSES.FAILED }),
       duplicateTx(SIMPLE_SEND_TX, {
@@ -313,7 +292,7 @@ describe('nonceSortedTransactionsSelector', () => {
       {
         nonce: '0x0',
         transactions: txList,
-        initialTransaction: last(txList),
+        initialTransaction: head(txList),
         primaryTransaction: last(txList),
         hasRetried: false,
         hasCancelled: false,
